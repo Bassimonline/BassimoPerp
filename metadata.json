@@ -1,0 +1,5 @@
+{
+  "name": "PerpTrader AI",
+  "description": "A production-grade, self-learning perpetual futures trading interface featuring real-time Binance market data, AI-driven trade signals, and advanced portfolio management.",
+  "requestFramePermissions": []
+}

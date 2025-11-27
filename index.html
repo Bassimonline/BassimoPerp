@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PerpTrader AI | Pro Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              background: '#0B0E11', // Deepest Black
+              surface: '#181A20',    // Panel Background
+              surfaceHighlight: '#2B3139', // Hover state
+              border: '#262932',     // Subtle borders
+              primary: '#FCD535',    // Binance Yellow (Accent)
+              primaryHover: '#F0B90B',
+              success: '#0ECB81',    // Pro Green
+              successDark: '#078554',
+              danger: '#F6465D',     // Pro Red
+              dangerDark: '#AD2638',
+              textPrimary: '#EAECEF',
+              textSecondary: '#848E9C',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            boxShadow: {
+              '3d-success': '0px 4px 0px 0px #078554',
+              '3d-danger': '0px 4px 0px 0px #AD2638',
+              '3d-primary': '0px 4px 0px 0px #C99400',
+              'glow': '0 0 20px rgba(252, 213, 53, 0.15)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0B0E11;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #2B3139;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #474D57;
+      }
+      body {
+        background-color: #0B0E11;
+        color: #EAECEF;
+      }
+      .glass-panel {
+        background: rgba(24, 26, 32, 0.6);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
