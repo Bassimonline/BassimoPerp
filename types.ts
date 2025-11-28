@@ -13,6 +13,19 @@ export enum Side {
   SHORT = 'SHORT'
 }
 
+export interface TokenConfig {
+  symbol: string;     // e.g., BTCUSDT
+  base: string;       // e.g., BTC (used for icons)
+  quote: string;      // e.g., USDT
+  name: string;       // e.g., Bitcoin
+}
+
+export interface SentimentData {
+  value: number; // 0-100
+  classification: string; // e.g., "Extreme Fear", "Greed"
+  imbalance: number; // -1 to 1 (Order book pressure)
+}
+
 export interface TradeSignal {
   id: string;
   symbol: string;
@@ -24,6 +37,7 @@ export interface TradeSignal {
   timestamp: number;
   reasoning: string;
   modelType: string;
+  sentimentContext?: string; // New field for UI display
 }
 
 export interface Position {
@@ -31,6 +45,7 @@ export interface Position {
   symbol: string;
   side: Side;
   size: number;
+  margin: number; 
   entryPrice: number;
   markPrice: number;
   leverage: number;
@@ -38,7 +53,7 @@ export interface Position {
   liquidationPrice: number;
   takeProfit?: number;
   stopLoss?: number;
-  timestamp: number; // Added for grace period check
+  timestamp: number; 
 }
 
 export interface ClosedTrade {
@@ -69,8 +84,8 @@ export type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
 export interface OrderBookLevel {
   price: number;
   amount: number;
-  total: number; // Cumulative total for depth calc
-  depthPercent: number; // 0-100 for visual bar
+  total: number; 
+  depthPercent: number; 
 }
 
 export interface OrderBookData {

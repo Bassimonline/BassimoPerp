@@ -11,28 +11,40 @@
         theme: {
           extend: {
             colors: {
-              background: '#0B0E11', // Deepest Black
-              surface: '#181A20',    // Panel Background
-              surfaceHighlight: '#2B3139', // Hover state
-              border: '#262932',     // Subtle borders
-              primary: '#FCD535',    // Binance Yellow (Accent)
-              primaryHover: '#F0B90B',
-              success: '#0ECB81',    // Pro Green
-              successDark: '#078554',
-              danger: '#F6465D',     // Pro Red
-              dangerDark: '#AD2638',
-              textPrimary: '#EAECEF',
-              textSecondary: '#848E9C',
+              background: '#000000', // Pure Black
+              surface: '#09090B',    // Zinc 950 - Sleek Panel
+              surfaceHighlight: '#18181B', // Zinc 900
+              border: '#27272A',     // Zinc 800
+              primary: '#F97316',    // Orange 500
+              primaryHover: '#EA580C', // Orange 600
+              secondary: '#FB923C', // Orange 400
+              success: '#10B981',    // Emerald 500
+              successDark: '#047857', // Emerald 700
+              danger: '#EF4444',     // Red 500
+              dangerDark: '#B91C1C', // Red 700
+              textPrimary: '#FAFAFA', // Zinc 50
+              textSecondary: '#A1A1AA', // Zinc 400
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
               mono: ['JetBrains Mono', 'monospace'],
             },
             boxShadow: {
-              '3d-success': '0px 4px 0px 0px #078554',
-              '3d-danger': '0px 4px 0px 0px #AD2638',
-              '3d-primary': '0px 4px 0px 0px #C99400',
-              'glow': '0 0 20px rgba(252, 213, 53, 0.15)',
+              '3d-success': '0px 4px 0px 0px #047857',
+              '3d-danger': '0px 4px 0px 0px #B91C1C',
+              '3d-primary': '0px 4px 0px 0px #C2410C', // Orange-700
+              'glow': '0 0 20px rgba(249, 115, 22, 0.15)', // Orange glow
+              'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+            },
+            animation: {
+              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'float': 'float 3s ease-in-out infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-3px)' },
+              }
             }
           }
         }
@@ -41,26 +53,31 @@
     <style>
       /* Custom Scrollbar */
       ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 5px;
+        height: 5px;
       }
       ::-webkit-scrollbar-track {
-        background: #0B0E11;
+        background: #000000;
       }
       ::-webkit-scrollbar-thumb {
-        background: #2B3139;
+        background: #27272A;
         border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #474D57;
+        background: #F97316;
       }
       body {
-        background-color: #0B0E11;
-        color: #EAECEF;
+        background-color: #000000;
+        color: #FAFAFA;
+      }
+      .orange-gradient-text {
+        background: linear-gradient(to right, #F97316, #FB923C);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
       }
       .glass-panel {
-        background: rgba(24, 26, 32, 0.6);
-        backdrop-filter: blur(10px);
+        background: rgba(9, 9, 11, 0.7);
+        backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.05);
       }
     </style>
