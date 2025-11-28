@@ -11,7 +11,7 @@ export const generateMarketAnalysis = async (
   sentiment?: SentimentData
 ): Promise<Partial<TradeSignal>> => {
   
-  // 1. Fallback if no key provided or Quota
+  // 1. Immediate Fallback if no key
   if (!process.env.API_KEY) {
     return simulateAnalysis(currentPrice, recentCandles, sentiment, "Demo Mode: ");
   }
@@ -20,61 +20,32 @@ export const generateMarketAnalysis = async (
     `Time: ${new Date(c.time).toLocaleTimeString()}, Close: ${c.close}, Vol: ${c.volume}`
   ).join('\n');
 
-  // Enhanced Sentiment Context
   const imbalancePct = sentiment ? (sentiment.imbalance * 100).toFixed(2) : "0.00";
   const sentimentText = sentiment 
-    ? `
-    MARKET SENTIMENT DATA:
-    - Fear & Greed Index: ${sentiment.value}/100 (${sentiment.classification})
-    - Real-Time Order Book Imbalance: ${imbalancePct}% 
-      (Positive = Buyers Dominating / Bullish Pressure)
-      (Negative = Sellers Dominating / Bearish Pressure)
-    `
-    : "Sentiment Data Unavailable.";
+    ? `Sentiment: ${sentiment.value} (${sentiment.classification}), Book Imbalance: ${imbalancePct}%`
+    : "Sentiment Unavailable";
 
   const prompt = `
-    Act as a Senior Crypto Hedge Fund Manager. Analyze ${symbol} for a HIGH-PROFITABILITY setup.
+    Analyze ${symbol}. Price: ${currentPrice}. ${sentimentText}.
+    Recent Candles: ${last5}
     
-    LIVE DATA:
-    - Current Price: ${currentPrice}
-    ${sentimentText}
+    Task: Identify a HIGH PROBABILITY trade (Long/Short).
+    Rules: 
+    - Confidence < 0.5 = SKIP.
+    - Risk/Reward 1:3.
     
-    RECENT PRICE ACTION (Last 5 periods):
-    ${last5}
-
-    STRATEGY & RULES:
-    1. **Quality over Quantity**: REJECT any trade with < 50% probability. We only want A+ setups.
-    2. **Trend Alignment**: 
-       - In "Extreme Fear" or Negative Imbalance -> HARD BIAS towards SHORT.
-       - In "Extreme Greed" or Positive Imbalance -> HARD BIAS towards LONG.
-       - Do NOT fight the trend unless you see a massive exhaustion candle.
-    3. **Profit Maximization**: 
-       - Aim for a Risk:Reward ratio of at least 1:3. 
-       - Set targets aggressive enough to cover fees and generate alpha.
-
-    OUTPUT:
-    Return a JSON object with the trade decision.
-    {
-      "reasoning": "Concise analysis (max 20 words). Focus on why this is an A+ setup.",
-      "confidence": number (0.00 to 1.00),
-      "side": "LONG" or "SHORT",
-      "suggestedStop": number (Precise stop loss),
-      "suggestedTarget": number (Aggressive take profit, aim for >2% move)
-    }
+    Output JSON: { "reasoning": "string", "confidence": number, "side": "LONG"|"SHORT", "suggestedStop": number, "suggestedTarget": number }
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.1 // Low temp for strict adherence to logic
-      }
+      config: { responseMimeType: 'application/json', temperature: 0.1 }
     });
 
     const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    if (!text) throw new Error("Empty AI response");
     
     const result = JSON.parse(text);
     return {
@@ -84,87 +55,58 @@ export const generateMarketAnalysis = async (
       stopLoss: result.suggestedStop,
       takeProfit: result.suggestedTarget,
       modelType: 'Gemini 2.5 Pro',
-      sentimentContext: `${sentiment?.classification} (${imbalancePct}%)`
+      sentimentContext: `${sentiment?.classification}`
     };
   } catch (error: any) {
-    let errorMsg = error.message || "Unknown error";
-    if (JSON.stringify(error).includes("429") || errorMsg.includes("429")) {
-        console.warn("Gemini Quota Exceeded. Switching to local Technical + Sentiment Analysis.");
-    } else {
-        console.warn("Gemini API Error:", errorMsg);
-    }
-    
-    return simulateAnalysis(currentPrice, recentCandles, sentiment, "Offline Fallback: ");
+    // 2. Failover to Local Analysis on ANY error (Network, 429, Parse)
+    console.warn("AI Service Failed, switching to Quant Engine:", error.message);
+    return simulateAnalysis(currentPrice, recentCandles, sentiment, "Quant Fallback: ");
   }
 };
 
-// Local Technical Analysis Fallback (Enhanced with Weighted Sentiment)
+// Robust Local Fallback
 const simulateAnalysis = (
     price: number, 
     candles: Candle[], 
     sentiment?: SentimentData,
     prefixReason: string = ""
 ): Partial<TradeSignal> => {
-    if (candles.length < 2) {
+    // If no data, return neutral placeholder to prevent crashes
+    if (!candles || candles.length < 2) {
         return {
-            reasoning: "Insufficient data for analysis.",
+            reasoning: "Insufficient market data.",
             confidence: 0,
             side: Side.LONG,
-            modelType: "System Wait"
+            modelType: "Waiting for Data"
         };
     }
 
     const last = candles[candles.length - 1];
     const prev = candles[candles.length - 2];
+    const isBullish = last.close > prev.close;
     
-    // 1. Base Technical Trend
-    const isTechnicalBullish = last.close > prev.close;
-    
-    // 2. Sentiment Weighting
-    let score = isTechnicalBullish ? 0.5 : -0.5; // Start with trend
-    let sentimentNote = "";
+    let score = isBullish ? 0.5 : -0.5;
 
+    // Add Sentiment Weight
     if (sentiment) {
-        // Imbalance is critical for short-term direction (0.1 = 10% imbalance)
-        // Add direct weight from imbalance
-        score += sentiment.imbalance * 2.5; // Heavy weight on real-time book
-
-        if (sentiment.imbalance > 0.15) sentimentNote = " + High Buy Pressure";
-        if (sentiment.imbalance < -0.15) sentimentNote = " + High Sell Pressure";
-
-        // Macro Sentiment Alignment
-        // If Fear (<30) AND Technicals are Bearish -> Boost Score (Strong Short)
-        if (sentiment.value < 30 && !isTechnicalBullish) score -= 0.3;
-        // If Greed (>70) AND Technicals are Bullish -> Boost Score (Strong Long)
-        if (sentiment.value > 70 && isTechnicalBullish) score += 0.3;
-        
-        // Counter-Trend Penalty (Fighting the tape)
-        if (sentiment.value < 30 && isTechnicalBullish) score -= 0.2; // Don't trust pumps in fear
+        score += sentiment.imbalance * 2.0; 
+        if (sentiment.value < 20 && !isBullish) score -= 0.2; // Fear + Drop = Short
+        if (sentiment.value > 80 && isBullish) score += 0.2; // Greed + Pump = Long
     }
 
-    const finalSide = score > 0 ? Side.LONG : Side.SHORT;
-    
-    // Calculate Confidence based on agreement between Trend and Score
-    // If Trend is Bullish and Score is High Positive -> High Confidence
-    let confidence = 0.60 + (Math.abs(score) * 0.2); 
-    
-    // Penalty for weak conviction
-    if (Math.abs(sentiment?.imbalance || 0) < 0.05) confidence -= 0.1;
+    const side = score > 0 ? Side.LONG : Side.SHORT;
+    let confidence = 0.5 + (Math.abs(score) * 0.3);
+    confidence = Math.min(0.90, confidence);
 
-    confidence = Math.min(0.95, confidence); // Cap at 95%
-
-    const volatility = (last.high - last.low) / last.close;
+    const volatility = (last.high - last.low) / last.close || 0.01;
+    const slDist = Math.max(price * 0.01, price * volatility * 2);
     
-    // STRATEGY UPDATE: Widen stops and targets for higher profitability
-    const slPercent = Math.max(0.01, volatility * 2.5); // Minimum 1% stop or 2.5x volatility
-    const tpPercent = slPercent * 3.0; // 3:1 Reward to Risk Ratio (Greedier)
-
     return {
-      reasoning: `${prefixReason}Book Imbalance ${(sentiment?.imbalance! * 100).toFixed(1)}%${sentimentNote}. Target 3:1 R/R.`,
+      reasoning: `${prefixReason}Trend is ${isBullish?'Bullish':'Bearish'} with ${sentiment?.classification || 'Neutral'} sentiment.`,
       confidence: confidence,
-      side: finalSide,
-      stopLoss: finalSide === Side.LONG ? price * (1 - slPercent) : price * (1 + slPercent),
-      takeProfit: finalSide === Side.LONG ? price * (1 + tpPercent) : price * (1 - tpPercent),
+      side: side,
+      stopLoss: side === Side.LONG ? price - slDist : price + slDist,
+      takeProfit: side === Side.LONG ? price + (slDist * 3) : price - (slDist * 3),
       modelType: "Quant Engine v2",
       sentimentContext: sentiment?.classification
     };

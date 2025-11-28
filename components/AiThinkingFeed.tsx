@@ -1,12 +1,15 @@
+
 import React, { useEffect, useRef } from 'react';
 import { AiLog } from '../types';
-import { Terminal, Cpu } from 'lucide-react';
+import { Terminal, Cpu, Play } from 'lucide-react';
 
 interface AiThinkingFeedProps {
   logs: AiLog[];
+  onScan?: () => void;
+  isScanning?: boolean;
 }
 
-export const AiThinkingFeed: React.FC<AiThinkingFeedProps> = ({ logs }) => {
+export const AiThinkingFeed: React.FC<AiThinkingFeedProps> = ({ logs, onScan, isScanning }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,10 +68,18 @@ export const AiThinkingFeed: React.FC<AiThinkingFeedProps> = ({ logs }) => {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input Simulation */}
-      <div className="flex-shrink-0 p-2 bg-black border-t border-border flex items-center gap-2 z-20 relative">
-        <span className="text-primary text-xs font-bold animate-pulse">&gt;_</span>
-      </div>
+      {/* Manual Scan Trigger */}
+      {onScan && (
+        <div className="flex-shrink-0 p-3 bg-black border-t border-border z-20 relative">
+            <button 
+                onClick={onScan}
+                disabled={isScanning}
+                className="w-full py-3 bg-gradient-to-r from-primary to-orange-600 text-black font-bold text-xs rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase tracking-wide border-b-4 border-orange-800 active:border-b-0 active:translate-y-1"
+            >
+                {isScanning ? <span className="animate-pulse">Running Diagnostics...</span> : <><Play className="w-3.5 h-3.5 fill-current"/> Scan Market Now</>}
+            </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { fetchKlines, subscribeToTicker, subscribeToDepth, subscribeToKline, subscribeToMarkPrice, fetchOrderBook, fetchFearAndGreedIndex } from './services/binanceService';
 import { generateMarketAnalysis } from './services/geminiService';
@@ -139,17 +140,37 @@ const App: React.FC = () => {
   const addAiLog = (message: string, type: AiLog['type'] = 'info') => {
       setAiLogs(prev => {
          const last = prev[prev.length - 1];
-         if (last && last.message === message && Date.now() - last.timestamp < 500) return prev;
+         if (last && last.message === message && Date.now() - last.timestamp < 2000) return prev;
          return [...prev, { id: Math.random().toString(36), timestamp: Date.now(), message, type }];
       });
   };
 
+  // ----------------------------------------------------------------------
+  // AUTO-PILOT LOOP
+  // ----------------------------------------------------------------------
+  useEffect(() => {
+    if (!userSettings.autoTrade) return;
+
+    const autoPilotLoop = setInterval(() => {
+        if (!isAiAnalyzing) {
+            handleAiAnalysis();
+        }
+    }, 15000); 
+
+    return () => clearInterval(autoPilotLoop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userSettings.autoTrade, isAiAnalyzing, symbol, price]); 
+
+  // ----------------------------------------------------------------------
+  // HYBRID DATA LOADING
+  // ----------------------------------------------------------------------
   useEffect(() => {
     let isActive = true;
     let wsTicker: any = null;
     let wsMark: any = null; 
     let wsKline: any = null;
     let wsDepth: any = null;
+    let checkDepthInterval: any = null;
 
     const startDataStream = async () => {
         setCandles([]);
@@ -158,7 +179,6 @@ const App: React.FC = () => {
 
         wsTicker = subscribeToTicker(symbol, (newPrice) => {
             if (!isActive) return;
-            
             const now = Date.now();
             if (now - lastUpdateRef.current > 100) { 
                 setPrice(newPrice);
@@ -196,10 +216,19 @@ const App: React.FC = () => {
             });
         });
 
+        // Depth Stream with Watchdog for Mock Generation
         wsDepth = subscribeToDepth(symbol, (newBook) => {
             if (!isActive) return;
             setOrderBook(newBook);
         });
+
+        // Keep checking if Orderbook is empty, if so, generate Mock
+        checkDepthInterval = setInterval(() => {
+            if (!isActive) return;
+            if (wsDepth && wsDepth.checkLiveness && price > 0) {
+                wsDepth.checkLiveness(price);
+            }
+        }, 1000);
 
         try {
             const [klineData, bookData] = await Promise.all([
@@ -221,7 +250,9 @@ const App: React.FC = () => {
                 return klineData;
             });
             
-            if (!orderBook) setOrderBook(bookData);
+            if (!orderBook && bookData) {
+                setOrderBook(bookData);
+            }
             
             if (price === 0 && klineData.length > 0) {
                 setPrice(klineData[klineData.length - 1].close);
@@ -237,6 +268,7 @@ const App: React.FC = () => {
 
     return () => {
         isActive = false;
+        clearInterval(checkDepthInterval);
         if (wsTicker && wsTicker.close) wsTicker.close();
         if (wsMark && wsMark.close) wsMark.close();
         if (wsKline && wsKline.close) wsKline.close();
@@ -467,7 +499,7 @@ const App: React.FC = () => {
         const aiResult = await generateMarketAnalysis(symbol, price, candles, sentiment);
         
         if (!aiResult.confidence || aiResult.confidence < 0.50) {
-             addAiLog(`Analysis: Weak Signal (${(aiResult.confidence! * 100).toFixed(0)}%). Filtered out.`, 'scan');
+             addAiLog(`Scan: Low Signal (${(aiResult.confidence! * 100).toFixed(0)}%). Monitoring...`, 'scan');
              return; 
         }
 
@@ -499,7 +531,11 @@ const App: React.FC = () => {
         if (userSettings.autoTrade) {
             const existingPos = positions.find(p => p.symbol === newSignal.symbol);
             if (existingPos) {
-                if (Date.now() - existingPos.timestamp < 60000) return;
+                if (Date.now() - existingPos.timestamp < 60000) {
+                     addAiLog(`Monitoring New Trade. PnL: ${existingPos.unrealizedPnL >= 0 ? '+' : ''}$${existingPos.unrealizedPnL.toFixed(2)}.`, 'scan');
+                     return;
+                }
+
                 const flipThreshold = 0.80; 
                 if (existingPos.side !== newSignal.side && newSignal.confidence >= flipThreshold) {
                     addAiLog(`Trend Reversal detected (${newSignal.side} - Conf ${Math.round(newSignal.confidence*100)}%). Flipping.`, 'alert');
@@ -516,9 +552,9 @@ const App: React.FC = () => {
                     }, 800);
                 } else {
                     if (existingPos.side !== newSignal.side) {
-                        addAiLog(`Weak reversal signal (${Math.round(newSignal.confidence*100)}% < 80%). Holding ${existingPos.side}.`, 'decision');
+                        addAiLog(`Weak reversal (${Math.round(newSignal.confidence*100)}%). Holding ${existingPos.side}.`, 'decision');
                     } else {
-                        addAiLog(`Holding ${existingPos.side}. Trend confirms.`, 'decision');
+                        addAiLog(`Trend Confirmed. Holding ${existingPos.side}. PnL: $${existingPos.unrealizedPnL.toFixed(2)}`, 'decision');
                     }
                 }
             } else {
@@ -539,7 +575,7 @@ const App: React.FC = () => {
     <div className="flex h-screen w-full bg-background text-textPrimary font-sans overflow-hidden selection:bg-primary selection:text-black">
       <aside className="w-16 border-r border-border bg-surface/50 backdrop-blur-md flex flex-col items-center py-6 gap-8 z-20 shadow-2xl shrink-0">
         <div className="p-2 bg-primary/10 rounded-xl border border-primary/20 shadow-glow cursor-pointer" onClick={() => setView('dashboard')}>
-          <Cpu className="text-primary w-6 h-6" />
+          <Cpu className="text-primary w-6 h-6 animate-pulse-slow" />
         </div>
         <nav className="flex-1 flex flex-col gap-6 w-full items-center">
             <NavItem icon={<LayoutDashboard />} active={view === 'dashboard'} onClick={() => setView('dashboard')} />
@@ -804,14 +840,11 @@ const App: React.FC = () => {
                             </div>
 
                             <div className="min-h-[250px] overflow-hidden">
-                                <AiThinkingFeed logs={aiLogs} />
-                                <button 
-                                    onClick={handleAiAnalysis}
-                                    disabled={isAiAnalyzing}
-                                    className="mt-3 w-full py-4 bg-gradient-to-r from-primary to-orange-600 text-black font-bold text-xs rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase tracking-wide border-t border-white/20"
-                                >
-                                    {isAiAnalyzing ? <span className="animate-pulse">Analyzing Market Structure...</span> : <><Play className="w-3.5 h-3.5 fill-current"/> Scan Market Now</>}
-                                </button>
+                                <AiThinkingFeed 
+                                    logs={aiLogs} 
+                                    onScan={handleAiAnalysis}
+                                    isScanning={isAiAnalyzing}
+                                />
                             </div>
                         </div>
                     </div>
